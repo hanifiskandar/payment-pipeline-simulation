@@ -13,9 +13,34 @@ class PaymentRun extends Command
 
     public function handle(PaymentPipelineService $pipeline): int
     {
-        $this->line('╔══════════════════════════════════════╗');
-        $this->line('║   Payment Pipeline Simulation v1.0   ║');
-        $this->line('╚══════════════════════════════════════╝');
+        $this->line('╔══════════════════════════════════════════════════════════════╗');
+        $this->line('║              Payment Pipeline Simulation v1.0                ║');
+        $this->line('╚══════════════════════════════════════════════════════════════╝');
+        $this->newLine();
+
+        $this->line('  Available Commands:');
+        $this->line('  ─────────────────────────────────────────────────────────────');
+        $this->line('  CREATE <payment_id> <amount> <currency> <merchant_id>');
+        $this->line('  AUTHORIZE <payment_id>');
+        $this->line('  CAPTURE <payment_id>');
+        $this->line('  VOID <payment_id> [reason_code]');
+        $this->line('  REFUND <payment_id> [amount]          (omit amount = full refund)');
+        $this->line('  SETTLE <payment_id>');
+        $this->line('  SETTLEMENT <batch_id>');
+        $this->line('  STATUS <payment_id>');
+        $this->line('  LIST');
+        $this->line('  AUDIT <payment_id>');
+        $this->line('  EXIT');
+        $this->newLine();
+
+        $this->line('  Notes:');
+        $this->line('  • Amounts use fixed precision e.g. 100.00');
+        $this->line('  • Supported currencies: MYR, USD, SGD, EUR, GBP');
+        $this->line('  • Payments above 500 trigger PRE_SETTLEMENT_REVIEW automatically');
+        $this->line('  • You can add inline comments after the 3rd token e.g. CREATE P1 10.00 MYR M1 # note');
+        $this->newLine();
+
+        $this->line('  ─────────────────────────────────────────────────────────────');
         $this->newLine();
 
         $file = $this->option('file');
