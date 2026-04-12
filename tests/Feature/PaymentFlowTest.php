@@ -90,7 +90,7 @@ class PaymentFlowTest extends TestCase
         $this->pipeline->handle('AUTHORIZE P1001');
         $this->pipeline->handle('CAPTURE P1001');
 
-        $this->assertSame('[OK] P1001 REFUNDED', $this->pipeline->handle('REFUND P1001 100.00'));
+        $this->assertSame('[OK] P1001 refunded 100.00 | total refunded: 100.00 | remaining: 0.00 | state: REFUNDED', $this->pipeline->handle('REFUND P1001 100.00'));
     }
 
     public function test_partial_refund_keeps_state_unchanged(): void
@@ -99,7 +99,7 @@ class PaymentFlowTest extends TestCase
         $this->pipeline->handle('AUTHORIZE P1001');
         $this->pipeline->handle('CAPTURE P1001');
 
-        $this->assertSame('[OK] P1001 CAPTURED', $this->pipeline->handle('REFUND P1001 40.00'));
+        $this->assertSame('[OK] P1001 refunded 40.00 | total refunded: 40.00 | remaining: 60.00 | state: CAPTURED', $this->pipeline->handle('REFUND P1001 40.00'));
 
         $storage = $this->app->make(PaymentStorageService::class);
         $payment = $storage->findPayment('P1001');
@@ -117,7 +117,7 @@ class PaymentFlowTest extends TestCase
         $this->pipeline->handle('REFUND P1001 30.00');
         $result = $this->pipeline->handle('REFUND P1001 40.00');
 
-        $this->assertSame('[OK] P1001 REFUNDED', $result);
+        $this->assertSame('[OK] P1001 refunded 40.00 | total refunded: 100.00 | remaining: 0.00 | state: REFUNDED', $result);
     }
 
     public function test_refund_over_amount_is_rejected(): void
@@ -139,7 +139,7 @@ class PaymentFlowTest extends TestCase
         $this->pipeline->handle('CAPTURE P1001');
         $this->pipeline->handle('SETTLE P1001');
 
-        $this->assertSame('[OK] P1001 REFUNDED', $this->pipeline->handle('REFUND P1001 100.00'));
+        $this->assertSame('[OK] P1001 refunded 100.00 | total refunded: 100.00 | remaining: 0.00 | state: REFUNDED', $this->pipeline->handle('REFUND P1001 100.00'));
     }
 
     // --- Invalid transitions ---
