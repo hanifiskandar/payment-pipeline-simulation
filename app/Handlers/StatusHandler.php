@@ -20,6 +20,9 @@ class StatusHandler extends BaseHandler
             return $this->error("Payment {$paymentId} not found");
         }
 
-        return "[STATUS] {$payment->paymentId} | {$payment->state->value} | {$payment->amount} {$payment->currency} | merchant: {$payment->merchantId}";
-    }
+        $refundInfo = bccomp($payment->refundedAmount, '0', 2) > 0
+            ? " | refunded: {$payment->refundedAmount}"
+            : '';
+
+        return "[STATUS] {$payment->paymentId} | {$payment->state->value} | {$payment->amount} {$payment->currency} | merchant: {$payment->merchantId}{$refundInfo}";    }
 }
