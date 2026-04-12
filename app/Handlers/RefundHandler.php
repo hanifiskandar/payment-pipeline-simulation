@@ -13,18 +13,11 @@ class RefundHandler extends BaseHandler
      */
     public function handle(array $tokens): string
     {
-        if (count($tokens) < 3) {
-            return $this->error('REFUND requires: payment_id amount');
+        if (count($tokens) < 2) {
+            return $this->error('REFUND requires: payment_id');
         }
 
         $paymentId = $tokens[1];
-        $refundAmount = $tokens[2];
-
-        if (! is_numeric($refundAmount) || bccomp($refundAmount, '0', 2) <= 0) {
-            return $this->error("Invalid refund amount: {$refundAmount}");
-        }
-
-        $refundAmount = bcadd($refundAmount, '0', 2);
 
         $payment = $this->storage->findPayment($paymentId);
 
@@ -37,6 +30,22 @@ class RefundHandler extends BaseHandler
             return $this->error(
                 "Payment {$paymentId} cannot be refunded from {$payment->state->value} state"
             );
+        }
+
+        // Amount is optional — if not provided, refund full remaining amount
+        $remaining = bcsub($payment->amount, $payment->refundedAmount, 2);
+
+        if (isset($tokens[2])) {
+            $refundAmount = $tokens[2];
+
+            if (! is_numeric($refundAmount) || bccomp($refundAmount, '0', 2) <= 0) {
+                return $this->error("Invalid refund amount: {$refundAmount}");
+            }
+
+            $refundAmount = bcadd($refundAmount, '0', 2);
+        } else {
+            // No amount provided — default to full remaining balance
+            $refundAmount = $remaining;
         }
 
         $newRefunded = bcadd($payment->refundedAmount, $refundAmount, 2);
@@ -64,8 +73,9 @@ class RefundHandler extends BaseHandler
 
         $this->storage->savePayment($payment);
 
-        $remaining = bcsub($payment->amount, $newRefunded, 2);
-        $message = "refunded {$refundAmount} | total refunded: {$newRefunded} | remaining: {$remaining} | state: {$payment->state->value}";
+        $remainingAfter = bcsub($payment->amount, $newRefunded, 2);
+        $message = "refunded {$refundAmount} | total refunded: {$newRefunded} | remaining: {$remainingAfter} | state: {$payment->state->value}";
+
         return $this->ok($paymentId, $message);
     }
 }
