@@ -40,17 +40,17 @@ docker-compose build
 
 Interactive mode:
 ```bash
-docker-compose run app payment:run
+docker-compose run --rm app payment:run
 ```
 
 File mode:
 ```bash
-docker-compose run app payment:run --file=demo/01_happy_path.txt
+docker-compose run --rm app payment:run --file=demo/01_happy_path.txt
 ```
 
 Run tests:
 ```bash
-docker-compose run app php artisan test
+docker-compose run --rm app php artisan test
 ```
 
 ### Without Docker
@@ -142,7 +142,7 @@ All configurable via environment variables — no source code changes required.
 
 Override via `.env` file or directly:
 ```bash
-REVIEW_THRESHOLD=1000 docker-compose run app payment:run
+REVIEW_THRESHOLD=1000 docker-compose run --rm app payment:run
 ```
 
 ---
@@ -222,7 +222,7 @@ All arithmetic uses `bcadd`, `bccomp`, `bcsub` with scale=2. Avoids float precis
 
 ```bash
 # With Docker
-docker-compose run app php artisan test
+docker-compose run --rm app php artisan test
 
 # Without Docker
 php artisan test
