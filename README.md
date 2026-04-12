@@ -50,7 +50,7 @@ docker-compose run --rm app payment:run --file=demo/01_happy_path.txt
 
 Run tests:
 ```bash
-docker-compose run --rm app php artisan test
+docker-compose run --rm app test
 ```
 
 ### Without Docker
@@ -222,7 +222,7 @@ All arithmetic uses `bcadd`, `bccomp`, `bcsub` with scale=2. Avoids float precis
 
 ```bash
 # With Docker
-docker-compose run --rm app php artisan test
+docker-compose run --rm app test
 
 # Without Docker
 php artisan test
