@@ -64,6 +64,8 @@ class RefundHandler extends BaseHandler
 
         $this->storage->savePayment($payment);
 
-        return $this->ok($paymentId, $payment->state->value);
+        $remaining = bcsub($payment->amount, $newRefunded, 2);
+        $message = "refunded {$refundAmount} | total refunded: {$newRefunded} | remaining: {$remaining} | state: {$payment->state->value}";
+        return $this->ok($paymentId, $message);
     }
 }
