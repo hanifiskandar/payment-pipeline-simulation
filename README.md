@@ -1,58 +1,135 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Payment Pipeline Simulation
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel 13 CLI application simulating a payment processing pipeline. Fully in-memory — no database, no frontend, no Eloquent.
 
-## About Laravel
+## Requirements
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.3+ with `bcmath` extension
+- Composer
+- Docker + Docker Compose (optional)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Setup (without Docker)
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Running
 
-## Contributing
+### Interactive mode (stdin)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+php artisan payment:run
+```
 
-## Code of Conduct
+### File mode
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan payment:run --file=commands.txt
+```
 
-## Security Vulnerabilities
+### Docker — interactive
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+docker compose run --rm app payment:run
+```
 
-## License
+### Docker — file mode
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+docker compose run --rm app payment:run --file=commands.txt
+```
+
+### Docker — run tests
+
+```bash
+docker compose run --rm app test --compact
+```
+
+## Commands
+
+| Command | Syntax | Description |
+|---|---|---|
+| `CREATE` | `CREATE <id> <amount> <currency> <merchant_id>` | Create a payment in INITIATED state |
+| `AUTHORIZE` | `AUTHORIZE <id>` | Authorize a payment |
+| `CAPTURE` | `CAPTURE <id>` | Capture an authorized payment |
+| `VOID` | `VOID <id> [reason...]` | Void a payment with optional reason |
+| `REFUND` | `REFUND <id> <amount>` | Partial or full refund |
+| `SETTLE` | `SETTLE <id>` | Mark a captured payment as settled |
+| `SETTLEMENT` | `SETTLEMENT <batch_id>` | Record a settlement batch |
+| `STATUS` | `STATUS <id>` | Show payment status and metadata |
+| `LIST` | `LIST` | List all payments |
+| `AUDIT` | `AUDIT <id>` | Acknowledge audit receipt (no side effects) |
+| `EXIT` | `EXIT` | Exit the session |
+
+## State Machine
+
+```
+INITIATED ──AUTHORIZE──▶ AUTHORIZED ──CAPTURE──▶ CAPTURED ──SETTLE──▶ SETTLED
+    │                        │                      │                     │
+   VOID                     VOID                  REFUND               REFUND
+    │                        │                      │                     │
+    ▼                        ▼                      ▼                     ▼
+  VOIDED                  VOIDED                REFUNDED             REFUNDED
+
+AUTHORIZED (amount > threshold) ──auto──▶ PRE_SETTLEMENT_REVIEW ──CAPTURE──▶ CAPTURED
+
+Any state ──CREATE conflict──▶ FAILED
+```
+
+## Comment Syntax
+
+A standalone `#` token at position 3 or later (1-indexed) is treated as a comment delimiter — everything from it onward is ignored.
+
+```
+CREATE P1001 10.00 MYR M01 # comment here   → valid, comment stripped
+AUTHORIZE P1001 # retrying                  → valid, # at position 3
+# CREATE P1001 10.00 MYR M01               → NOT a comment — # at position 1 becomes unknown command
+VOID P1001 REASON#CODE                      → embedded # not a delimiter — reason is "REASON#CODE"
+```
+
+## Running Tests
+
+```bash
+php artisan test --compact
+```
+
+## Design Decisions
+
+### In-memory storage
+`PaymentStorageService` is a Laravel singleton backed by plain PHP arrays. This is deliberate — the simulation has no persistence requirements and no DB dependency, keeping startup instantaneous.
+
+### BCMath for amounts
+All arithmetic uses `bcadd`, `bccomp`, `bcsub` with scale=2. This avoids float precision errors (e.g. `0.1 + 0.2 !== 0.3` in PHP floats). Amounts are stored as strings throughout.
+
+### PRE_SETTLEMENT_REVIEW
+Auto-triggered inside `AuthorizeHandler` after a successful AUTHORIZED transition when `amount > config('payment.review_threshold')` (default 500, configurable via `REVIEW_THRESHOLD` env var). The state service remains a pure FSM; business rules live in the handler layer.
+
+### SETTLE vs SETTLEMENT
+- `SETTLE <payment_id>` — transitions a single payment from CAPTURED → SETTLED. Idempotent.
+- `SETTLEMENT <batch_id>` — records that a settlement batch was processed. Does NOT change any payment state. Prints a summary of currently SETTLED payments.
+
+### Partial refunds
+`refunded_amount` accumulates via `bcadd` on each `REFUND` call. The state only transitions to `REFUNDED` once `refunded_amount == amount`. Multiple partial refunds are allowed up to the original amount.
+
+### AUDIT command
+Zero side effects by design. It does not validate that the payment exists, does not mutate any state, and does not write to the audit log. It simply acknowledges receipt.
+
+### Comment rule
+A `#` is only a comment when it appears as a standalone whitespace-separated token at position 3 or later. An embedded `#` within a token (e.g. `REASON#CODE`) is treated as a regular character.
+
+## What Would Be Different in Production
+
+| Area | Production approach |
+|---|---|
+| Storage | PostgreSQL/MySQL with Eloquent models and proper migrations |
+| State transitions | Queue-based jobs (e.g. `AuthorizePaymentJob`) with retry logic |
+| Idempotency | Idempotency keys stored in Redis with TTL |
+| Audit trail | Dedicated `payment_audit_log` table with indexed `payment_id` |
+| Refunds | Ledger-style `payment_refunds` table per refund event |
+| Webhooks | Event listeners firing `PaymentSettled`, `PaymentRefunded` etc. |
+| Observability | Structured logging (JSON), metrics, distributed tracing |
+| Auth | API keys / OAuth scopes per merchant |
+| Concurrency | Optimistic locking (`updated_at` compare-and-swap) or pessimistic DB row locks |
