@@ -248,3 +248,15 @@ Coverage includes happy path flows, invalid transitions, idempotency, parser beh
 | Auth | API keys / OAuth scopes per merchant |
 | Concurrency | Optimistic locking or pessimistic DB row locks |
 | PRE_SETTLEMENT_REVIEW | Fraud scoring service or human review queue |
+
+
+## Self-Assessment
+
+- **State machine easy to change?** Yes — `PaymentState` is a PHP enum, transitions are centralized in `PaymentStateService`. Adding a new state is one line.
+- **Can add CHARGEBACK with minimal changes?** Yes — add state to enum, add transition rule, create one handler, register it. Nothing else changes.
+- **Parsing decoupled from business rules?** Yes — `CommandParser` only tokenizes input. No business logic touches it.
+- **AUDIT has no side effects?** Yes — prints acknowledgement only. No state mutation of any kind.
+- **SETTLE vs SETTLEMENT distinction correct?** Yes — `SETTLE` mutates one payment, `SETTLEMENT` is reporting only.
+- **`#` comment behavior exact?** Yes — covered by `CommandParserTest` with dedicated test cases.
+- **No raw stack traces?** Yes — all exceptions caught and shown as clean `[ERROR]` messages.
+- **Comfortable maintaining this code?** Yes.
